@@ -1,9 +1,14 @@
 {
   "max_per_source": 10,
-  "batch_size": 25,
+  "batch_size": 70,
+  "lede_chars": 200,
+  "max_age_hours": 36,
   "max_clusters": 40,
+  "brief_clusters": 40,
+  "brief_links_per_cluster": 2,
   "digest_items": 5,
   "watchlist": [],
+  "body_hints": [],
   "fulltext_articles_per_cluster": 2,
   "fulltext_max_chars": 3500,
   "weights": {

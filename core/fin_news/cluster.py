@@ -54,7 +54,7 @@ def cluster(
         headline = (
             articles_by_id[first_aid].title
             if first_aid and first_aid in articles_by_id
-            else items[0].get("summary_vi", ek)
+            else ek
         )
 
         raw_clusters.append({
@@ -156,21 +156,21 @@ def score(
             r_bonus = 0.0
 
     # 4. Watchlist bonus
-    # 1.5 if any entity or title matches profile.watchlist
+    # 1.5 if any title or lede matches profile.watchlist
     watchlist = profile.get("watchlist", [])
     w_bonus = 0.0
     if watchlist:
         norm_watch = [strip_accents(w.lower()) for w in watchlist if w]
         matched = False
         for aid in c.article_ids:
-            cl = classified_by_id.get(aid, {})
-            entities = cl.get("entities", [])
             art = articles_by_id.get(aid)
-            title = art.title if art else ""
-            check_text = strip_accents(f"{title} {' '.join(entities)}".lower())
-            if any(w in check_text for w in norm_watch):
-                matched = True
-                break
+            if art:
+                title = art.title or ""
+                lede = art.summary_raw or ""
+                check_text = strip_accents(f"{title} {lede}".lower())
+                if any(w in check_text for w in norm_watch):
+                    matched = True
+                    break
         if matched:
             w_bonus = float(weights.get("watchlist_bonus", 1.5))
 

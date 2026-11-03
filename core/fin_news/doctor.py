@@ -1,4 +1,5 @@
 """Doctor diagnostic checks."""
+from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import sys
@@ -7,6 +8,14 @@ import urllib.request
 
 from . import config
 from . import fetch
+from . import fulltext_check
+from . import health
+
+
+def get_doc_paths() -> Tuple[Path, Path]:
+    """Return absolute paths to INSTALL.md and TROUBLESHOOT.md."""
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    return (repo_root / "INSTALL.md").resolve(), (repo_root / "TROUBLESHOOT.md").resolve()
 
 
 def check_python_version() -> Tuple[str, bool, str]:
@@ -48,7 +57,7 @@ check_network = check_network_connectivity
 
 
 def run(check_network: bool = True, check_sources: bool = True) -> List[Tuple[str, bool, str]]:
-    """Run all doctor checks and return list of (name, passed, detail)."""
+    """Run standard doctor checks and return list of (name, passed, detail)."""
     results = [
         check_python_version(),
         check_home_writable(),
@@ -67,4 +76,45 @@ def run(check_network: bool = True, check_sources: bool = True) -> List[Tuple[st
         except Exception as e:
             results.append(("Sources Check", False, str(e)))
 
+    return results
+
+
+def run_fulltext(
+    sources_cfg: Optional[dict] = None,
+    profile: Optional[dict] = None,
+    opener=None
+) -> List[dict]:
+    """Run fulltext check concurrently for all enabled sources (20s timeout each)."""
+    if sources_cfg is None:
+        sources_cfg = config.load("sources")
+    if profile is None:
+        profile = config.load("profile")
+
+    sources = sources_cfg.get("sources", {})
+    enabled_sources = {sid: scfg for sid, scfg in sources.items() if scfg.get("enabled", True)}
+
+    results = []
+    with ThreadPoolExecutor(max_workers=min(10, max(1, len(enabled_sources)))) as executor:
+        future_to_sid = {
+            executor.submit(fulltext_check.check_source, sid, scfg, profile, opener=opener): sid
+            for sid, scfg in enabled_sources.items()
+        }
+        for future in future_to_sid:
+            sid = future_to_sid[future]
+            try:
+                res = future.result(timeout=20)
+                results.append(res)
+            except Exception as e:
+                results.append({
+                    "source": sid,
+                    "status": "error",
+                    "tier": "",
+                    "chars": 0,
+                    "url": "",
+                    "error": str(e),
+                    "text": "",
+                })
+
+    health.record_fulltext_health(results)
+    results.sort(key=lambda r: r.get("source", ""))
     return results

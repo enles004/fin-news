@@ -9,6 +9,7 @@
       ],
       "kind": "rss",
       "group": "chuyen-tai-chinh",
+      "label": "CafeF",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -20,6 +21,7 @@
       ],
       "kind": "rss",
       "group": "chuyen-tai-chinh",
+      "label": "Vietstock",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -28,6 +30,7 @@
       "url": "https://tinnhanhchungkhoan.vn/rss/home.rss",
       "kind": "rss",
       "group": "chuyen-tai-chinh",
+      "label": "Tin nhanh chứng khoán",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -36,6 +39,7 @@
       "url": "https://vneconomy.vn/tin-moi.rss",
       "kind": "rss",
       "group": "chuyen-tai-chinh",
+      "label": "VnEconomy",
       "enabled": true,
       "cookie": false,
       "mixed": true
@@ -44,6 +48,7 @@
       "url": "https://cafebiz.vn/rss/home.rss",
       "kind": "rss",
       "group": "chuyen-tai-chinh",
+      "label": "CafeBiz",
       "enabled": true,
       "cookie": false,
       "mixed": true
@@ -52,6 +57,7 @@
       "url": "https://vnexpress.net/rss/kinh-doanh.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "VnExpress",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -60,6 +66,7 @@
       "url": "https://tuoitre.vn/rss/kinh-doanh.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "Tuổi Trẻ",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -68,6 +75,7 @@
       "url": "https://thanhnien.vn/rss/kinh-te.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "Thanh Niên",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -76,6 +84,7 @@
       "url": "https://dantri.com.vn/rss/kinh-doanh.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "Dân Trí",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -84,6 +93,7 @@
       "url": "https://vietnamnet.vn/rss/kinh-doanh.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "VietnamNet",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -92,6 +102,7 @@
       "url": "https://znews.vn/rss/kinh-doanh-tai-chinh.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "Zing News",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -100,6 +111,7 @@
       "url": "https://laodong.vn/rss/kinh-doanh.rss",
       "kind": "rss",
       "group": "tong-hop",
+      "label": "Lao Động",
       "enabled": true,
       "cookie": true,
       "mixed": false
@@ -108,6 +120,7 @@
       "url": "https://baochinhphu.vn/kinh-te.rss",
       "kind": "rss",
       "group": "chinh-phu",
+      "label": "Báo Chính phủ",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -116,6 +129,7 @@
       "url": "https://www.vietnamplus.vn/rss/kinhte.rss",
       "kind": "rss",
       "group": "chinh-phu",
+      "label": "VietnamPlus",
       "enabled": true,
       "cookie": false,
       "mixed": false
@@ -124,6 +138,7 @@
       "url": "https://nhandan.vn/rss/kinhte-1185.rss",
       "kind": "rss",
       "group": "chinh-phu",
+      "label": "Nhân Dân",
       "enabled": true,
       "cookie": false,
       "mixed": false

@@ -5,6 +5,7 @@ REM Fin-News Launcher for Windows
 
 set "SCRIPT_DIR=%~dp0"
 set "CLI_PATH=%SCRIPT_DIR%core\cli.py"
+set "INSTALL_MD=%SCRIPT_DIR%INSTALL.md"
 
 REM 1. Check for standard python >= 3.11
 python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
@@ -24,7 +25,7 @@ REM 3. Ask user before installing uv (never silent)
 echo Python 3.11+ or uv was not found on your system.
 set /p "INSTALL_UV=Would you like to install uv to your user directory (no admin required)? (Y/N): "
 if /i not "!INSTALL_UV!"=="Y" (
-    echo Installation cancelled. Please install Python 3.11+ or uv manually: https://astral.sh/uv
+    echo Installation cancelled. Xem INSTALL.md để cài đặt: %INSTALL_MD%
     exit /b 1
 )
 

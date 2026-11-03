@@ -4,11 +4,16 @@ import re
 import sys
 import unittest
 
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+import support
+
 CORE_DIR = Path(__file__).resolve().parent.parent / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
 
-from fin_news.extract import extract_article_text, get_title_words
+from fin_news.extract import extract_article_text, extract_with_tier, get_title_words
 
 
 class TestExtract(unittest.TestCase):
@@ -240,6 +245,63 @@ class TestExtract(unittest.TestCase):
         self.assertIn(p1, output)
         self.assertIn(p2, output)
         self.assertNotIn(p3, output)
+
+    def test_extract_with_tier_reports_each_tier(self):
+        long_p1 = "Nội dung bài viết tài chính dài hơn một trăm ký tự kiểm tra các tầng bóc tách khác nhau của hệ thống fin-news."
+        long_p2 = "Đoạn văn thứ hai bổ sung thêm nhiều dữ liệu phân tích số liệu thị trường để vượt qua ngưỡng hai trăm ký tự."
+
+        # 1. json-ld
+        html_jsonld = f"""<html><head><script type="application/ld+json">
+        {{"@type": "NewsArticle", "articleBody": "{long_p1} {long_p2}"}}
+        </script></head><body></body></html>"""
+        txt, tier = extract_with_tier(html_jsonld)
+        self.assertEqual(tier, "json-ld")
+        self.assertGreater(len(txt), 200)
+
+        # 2. article
+        html_article = f"""<html><body><article><p>{long_p1}</p><p>{long_p2}</p></article></body></html>"""
+        txt, tier = extract_with_tier(html_article)
+        self.assertEqual(tier, "article")
+        self.assertGreater(len(txt), 200)
+
+        # 3. hint
+        html_hint = f"""<html><body><div class="article-content"><p>{long_p1}</p><p>{long_p2}</p></div></body></html>"""
+        txt, tier = extract_with_tier(html_hint)
+        self.assertEqual(tier, "hint")
+        self.assertGreater(len(txt), 200)
+
+        # 4. density
+        html_density = f"""<html><body><div class="custom-unknown-container"><p>{long_p1}</p><p>{long_p2}</p></div></body></html>"""
+        txt, tier = extract_with_tier(html_density)
+        self.assertEqual(tier, "density")
+        self.assertGreater(len(txt), 200)
+
+        # 5. empty/short
+        txt, tier = extract_with_tier("<html><body><p>Ngắn</p></body></html>")
+        self.assertEqual(txt, "")
+        self.assertEqual(tier, "")
+
+    def test_hints_are_tried_before_builtin_hints(self):
+        p_custom = "Đoạn văn từ container tùy biến với gợi ý trích xuất riêng biệt cần được ưu tiên xử lý trước." * 3
+        p_builtin = "Đoạn văn từ container mặc định có class article-body thông thường được xử lý sau." * 3
+
+        html = f"""<html><body>
+        <div class="my-custom-box"><p>{p_custom}</p></div>
+        <div class="article-body"><p>{p_builtin}</p></div>
+        </body></html>"""
+
+        txt, tier = extract_with_tier(html, hints=("my-custom-box",))
+        self.assertEqual(tier, "hint")
+        self.assertIn("gợi ý trích xuất riêng biệt", txt)
+        self.assertNotIn("thông thường được xử lý sau", txt)
+
+    def test_extract_article_text_wrapper_unchanged(self):
+        long_p = "Nội dung bài viết tài chính thử nghiệm để kiểm tra tính toàn vẹn của wrapper extract_article_text so với extract_with_tier." * 3
+        html = f"""<html><body><article><p>{long_p}</p></article></body></html>"""
+        wrapper_text = extract_article_text(html)
+        tier_text, tier = extract_with_tier(html)
+        self.assertEqual(wrapper_text, tier_text)
+        self.assertEqual(tier, "article")
 
 
 if __name__ == "__main__":

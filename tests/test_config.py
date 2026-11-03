@@ -6,6 +6,11 @@ from pathlib import Path
 
 # Add core to sys.path so fin_news can be imported
 import sys
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+import support
+
 CORE_DIR = Path(__file__).resolve().parent.parent / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
@@ -36,7 +41,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(new, 15)
         profile = config.load("profile")
         self.assertEqual(profile["max_per_source"], 15)
-        self.assertEqual(profile.get("batch_size"), 25)
+        self.assertEqual(profile.get("batch_size"), 70)
 
     def test_dict_merge_adds_user_source_without_dropping_defaults(self):
         user_source = {

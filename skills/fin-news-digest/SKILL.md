@@ -5,75 +5,92 @@ description: Quy trình thu thập, phân loại song song và tổng hợp bả
 
 # Kỹ năng Tổng hợp Bản tin Tài chính (Fin-News Digest)
 
-Kỹ năng này điều phối quy trình phân tích tin tức tài chính Việt Nam kết hợp giữa công cụ dòng lệnh Python (CLI) và các subagent Claude.
+Kỹ năng điều phối quy trình thu thập, phân loại song song bằng subagent Haiku và tổng hợp bản tin tài chính Việt Nam hằng ngày.
 
-## 1. Bảng ánh xạ Yêu cầu → Lệnh CLI (theo Spec §6)
+Khi người dùng yêu cầu thêm/bớt nguồn, đổi cấu hình, watchlist… đọc file này:
+`${CLAUDE_PLUGIN_ROOT}/skills/fin-news-digest/config-guide.md`
 
-| Yêu cầu của người dùng | Lệnh CLI tương ứng | Ghi chú |
-|---|---|---|
-| Chạy bản tin mặc định hằng ngày | `run` | Gồm `fetch` và `prepare` |
-| Thu thập tin tức tùy chỉnh | `fetch [--groups ...] [--only ...] [--limit N] [--since 7d] [--query ...]` | Hỗ trợ lọc nhóm, nguồn, từ khóa |
-| Chuẩn bị các lô phân loại | `prepare` | Khử trùng lặp, lọc nguồn hỗn hợp, chia batch 25 bài |
-| Tổng hợp kết quả phân loại | `collect` | Gộp `result-NN.json`, trả mã thoát 3 nếu có bài lỗi |
-| Gom cụm và chấm điểm tin | `cluster [--skip-merge]` | Tạo clusters-raw.json và merge-input.json (hoặc xuất thẳng clusters.json nếu có cờ) |
-| Gộp các cụm tin tương đồng | `merge` | Áp dụng kết quả từ subagent cluster-merger, ghi clusters.json (mã thoát 3 nếu có lỗi nhóm) |
-| Lấy toàn văn các cụm điểm cao | `fulltext <cluster_id> ...` | Tải nội dung chi tiết bài viết |
-| Báo cáo sức khoẻ nguồn | `health` | Hiển thị trạng thái các nguồn tin |
-| Thêm nguồn tin mới | `add-source <URL> [--id ID] [--group G]` | Tự động dò RSS và kiểm tra thật |
-| Kiểm tra thử một nguồn | `test-source <ID>` | Kiểm tra khả năng kết nối và lấy tin |
-| Xem cấu hình | `config get <file> <key>` | Đọc giá trị cấu hình |
-| Thay đổi cấu hình | `config set <file> <key> <value>` | Ghi đè cấu hình người dùng |
-| Khôi phục cấu hình mặc định | `config unset <file> <key>` | Xoá cấu hình người dùng |
-| Chẩn đoán hệ thống | `doctor` | Kiểm tra Python, quyền ghi, mạng, nguồn tin |
+## Quy tắc giao tiếp (Bắt buộc)
+1. Thông báo trạng thái: Tối đa một câu ngắn gọn cho mỗi giai đoạn từ tập hợp sau:
+   - "Đang thu thập tin…"
+   - "Đang phân loại…"
+   - "Đang tổng hợp bản tin…"
+2. Tuyệt đối không bao giờ nhắc đến đường dẫn file, cluster ID (như c-001), mã thoát (exit code), JSON, tên agent/model, tên công cụ, hay trích dẫn nguyên văn đầu ra của CLI.
+3. Không tường thuật từng bước (no step-by-step narration).
+4. Nếu có lỗi, giải thích bằng lời văn thông thường điều gì đã xảy ra và người dùng có thể làm gì.
+5. Thông điệp cuối cùng gửi người dùng là bản tin hoàn chỉnh, kèm tối đa một dòng "Lưu ý:" khi có sự cố thật sự.
 
-## 2. Quy tắc quan trọng
+## Lệnh CLI chính
+- Windows: `"${CLAUDE_PLUGIN_ROOT}\run.cmd" <subcommand>`
+- Linux/macOS: `"${CLAUDE_PLUGIN_ROOT}/run.sh" <subcommand>`
 
-1. **Quy tắc Lưu hay Không lưu (One-off vs Save):**
-   - Nếu người dùng chỉ yêu cầu một lần (hoặc chưa rõ ý định): chạy với cờ tương ứng (ví dụ `--limit N` hoặc `--groups G`).
-   - Nếu người dùng nói "cập nhật luôn / từ giờ / lưu lại / save": áp dụng thay đổi bằng `config set`, thông báo sau (file, giá trị cũ → mới, cách hoàn tác), và tự động ghi vào `CHANGELOG.md`.
-   - Nếu chưa rõ, hỏi người dùng: *"Bạn muốn áp dụng cho một lần chạy này hay lưu lại dùng lâu dài?"*.
-2. **Quy tắc Nguồn hỏng (Source Health):**
-   - Mọi nguồn lỗi hoặc rỗng phải được báo cáo công khai trong mục "Sức khoẻ nguồn" của bản tin (tên nguồn, chi tiết lỗi, thời điểm lỗi từ khi nào).
-   - Tuyệt đối không tự ý xóa nguồn, sửa nguồn hay bỏ qua nguồn hỏng trong im lặng.
-3. **Quy tắc Mở rộng Tham số (Impact Scope & Verified Tools):**
-   - Trước khi thực hiện bất kỳ yêu cầu nào vượt ngoài các tham số và công cụ hiện có:
-     a. Báo cáo phạm vi ảnh hưởng (file nào bị thêm/sửa, bản tin hàng ngày có thay đổi định dạng không, tốn thêm token không).
-     b. Xác định rõ công cụ và quyền nào thực sự sẵn sàng (script, thư viện chuẩn, kết nối mạng — kiểm tra thực tế, không đoán).
-     c. Đề xuất phương án và chỉ bắt tay vào làm sau khi người dùng phê duyệt.
+| Lệnh | Mô tả |
+|---|---|
+| `run` | Thu thập tin mới, lọc thời gian và chuẩn bị các lô batch |
+| `finish` | Gom kết quả phân loại, lưu cache và gom cụm tin |
+| `brief` | Xuất danh sách cụm tin tiêu biểu kèm đường dẫn bài viết gốc |
+| `stats` | Hiển thị thời gian thực thi các bước của lượt chạy gần nhất |
+| `health` | Kiểm tra tình trạng kết nối các nguồn báo |
 
-## 3. Quy trình thực thi chính (Main Procedure)
+## Quy trình thực thi mặc định (Default Procedure)
 
-### Thiết lập môi trường và launcher:
-- **Cách gọi launcher theo hệ điều hành:**
-  - Trên Windows: `"${CLAUDE_PLUGIN_ROOT}\run.cmd" <subcommand>`
-  - Trên Linux / macOS: `"${CLAUDE_PLUGIN_ROOT}/run.sh" <subcommand>`
-  Tất cả các lệnh con trong Bảng ánh xạ ở Mục 1 (`run`, `fetch`, `prepare`, `collect`, `cluster`, `merge`, `fulltext`, `health`, `add-source`, `test-source`, `config`, `doctor`) đều là tham số `<subcommand>` truyền cho launcher tương ứng ở trên.
-- **Vị trí dữ liệu (`FIN_NEWS_HOME`):**
-  Dữ liệu lưu trữ luôn nằm tại `FIN_NEWS_HOME` (mặc định là `~/.fin-news`), nằm hoàn toàn bên ngoài thư mục plugin để đảm bảo an toàn và bảo toàn nguyên vẹn qua các lần cập nhật plugin.
+### Bước 0: Kiểm tra môi trường
+Nếu lệnh CLI đầu tiên thất bại do thiếu Python hoặc uv: đọc `${CLAUDE_PLUGIN_ROOT}/INSTALL.md`, giải thích ngắn gọn bằng lời văn thông thường những gì sẽ cài đặt và hỏi ý kiến người dùng trước khi tiến hành.
 
-### Các bước thực hiện:
-1. **Khởi chạy chuẩn bị:**
-   Chạy launcher với lệnh `run` (hoặc `fetch` theo tham số rồi `prepare`).
-2. **Phân loại song song (System 1):**
-   Đọc danh sách các file batch được tạo trong `data/YYYY-MM-DD/batches/batch-NN.json` (nằm trong `FIN_NEWS_HOME`).
-   Khởi chạy các subagent `fin-news:news-classifier` song song, truyền rõ ràng tham số `model: "haiku"` trên mọi lượt dispatch. Mỗi subagent tuân thủ hướng dẫn từ `${CLAUDE_PLUGIN_ROOT}/prompts/classify.md`, xử lý lô tin trong `batch-NN.json` và ghi kết quả vào `result-NN.json` tương ứng.
-3. **Thu thập kết quả:**
-   Chạy launcher với lệnh `collect`.
-   Nếu lệnh trả về mã thoát 3 (còn ID lỗi/thiếu): khởi chạy lại `fin-news:news-classifier` (kèm `model: "haiku"`) một lượt duy nhất cho các ID được báo.
-4. **Gom cụm sơ bộ:**
-   Chạy launcher với lệnh `cluster` để tạo `clusters-raw.json` và `merge-input.json`.
-5. **Gộp cụm tương đồng (Second Pass):**
-   Khởi chạy subagent `fin-news:cluster-merger` (truyền rõ ràng `model: "haiku"` trên mọi lượt dispatch) để đọc `merge-input.json`, đánh giá và gộp cụm theo hướng dẫn trong `${CLAUDE_PLUGIN_ROOT}/prompts/merge.md`, rồi ghi kết quả vào `merge-result.json`.
-   Chạy launcher với lệnh `merge`. Nếu lệnh trả về mã thoát 3 (có nhóm lỗi): chạy lại subagent `fin-news:cluster-merger` (kèm `model: "haiku"`) một lượt duy nhất.
-   Sau khi lệnh thành công, đọc danh sách các cụm ứng viên được in ra màn hình.
-6. **Trích xuất tin toàn văn:**
-   Với các cụm được đánh dấu `needs_fulltext: true`, chạy launcher với lệnh `fulltext <cluster_id> ...`.
-7. **Tổng hợp bản tin (System 2):**
-   Tổng hợp thông tin theo hướng dẫn trong `${CLAUDE_PLUGIN_ROOT}/prompts/synthesize.md` và mẫu `${CLAUDE_PLUGIN_ROOT}/prompts/digest-template.md`.
-   Đảm bảo 4 phần theo đúng thứ tự:
-   - 1. Tiêu điểm hôm nay
-   - 2. Theo chủ đề
-   - 3. Theo dõi (Watchlist)
-   - 4. Sức khoẻ nguồn
-8. **Lưu trữ và xuất bản:**
-   Ghi bản tin hoàn chỉnh vào `digests/YYYY-MM-DD.md` trong thư mục `FIN_NEWS_HOME` và in ra trong giao diện chat cho người dùng đọc.
+### Bước 1: Thu thập và chuẩn bị
+Gửi thông báo: "Đang thu thập tin…"
+Chạy launcher với lệnh `run`. Nếu CLI báo không có bài viết mới, thông báo cho người dùng và kết thúc.
+
+### Bước 2: Phân loại song song (System 1)
+Gửi thông báo: "Đang phân loại…"
+Từ danh sách file batch (`batch-NN.json`) do `run` in ra:
+Dispatch `ceil(new_articles / batch_size)` subagent `fin-news:news-classifier` trong một tin nhắn duy nhất, mỗi subagent chỉ nhận đường dẫn file batch trong prompt và chỉ định rõ `model: "haiku"`.
+
+### Bước 3: Hoàn tất phân loại và gom cụm
+Chạy launcher với lệnh `finish`.
+Nếu lệnh trả về mã thoát 3 và các dòng `RERUN <đường dẫn batch>`: re-dispatch subagent `fin-news:news-classifier` (kèm `model: "haiku"`) một lượt duy nhất cho các batch đó, sau đó gọi lại `finish`.
+
+### Bước 4: Đọc brief và liên kết nguồn
+Chạy launcher với lệnh `brief` để nhận danh sách các cụm tin chấm điểm cao nhất kèm đường link bài báo gốc và đoạn lede.
+Mô hình chính tự gộp các cụm tin có nội dung trùng lặp rõ rệt trong quá trình đọc brief và sử dụng liên kết từ cả hai cụm.
+(Chỉ dùng `fulltext` khi người dùng yêu cầu đào sâu, chi tiết hoặc khi 2 nguồn trong top 5 mâu thuẫn số liệu, tối đa 3 cụm, mỗi cụm ≤ 2 bài. Nếu có bài báo trả về mang nhãn `[chỉ có tóm tắt RSS]`, hãy thông báo bằng lời văn thân thiện rằng một số bài chỉ tóm tắt được từ đoạn trích ngắn của nguồn tin).
+
+### Bước 5: Tổng hợp và lưu trữ bản tin
+Gửi thông báo: "Đang tổng hợp bản tin…"
+Tổng hợp bản tin theo đúng Cấu trúc Bản tin bên dưới (dung lượng khoảng 700–900 từ).
+Lưu bản tin hoàn chỉnh vào `<FIN_NEWS_HOME>/digests/YYYY-MM-DD.md`.
+In toàn bộ bản tin ra màn hình cho người dùng.
+
+## Cấu trúc Bản tin (Digest Template)
+Tiêu đề: `# Bản tin Tài chính — DD/MM/YYYY`
+
+### 1. Tiêu điểm hôm nay
+Chọn đúng 5 mục quan trọng nhất (theo `profile.digest_items`). Mỗi mục gồm:
+- **Tiêu đề in đậm**
+- 1–2 câu tóm tắt nội dung cốt lõi và tác động.
+- Tối đa 2 liên kết bài viết theo định dạng `[Tên báo](url)`.
+
+### 2. Điểm tin
+Chỉ hiển thị các chủ đề có tin tức trong ngày. Mỗi chủ đề là một tiêu đề mục nhỏ kèm các gạch đầu dòng ngắn gọn (mỗi dòng ≤ 25 từ) và đúng 1 liên kết nguồn.
+Thứ tự các chủ đề bắt buộc:
+1. Vĩ mô & Chính sách
+2. Ngân hàng & Tiền tệ
+3. Chứng khoán & Doanh nghiệp
+4. Bất động sản
+5. Vàng & Ngoại tệ
+6. Năng lượng & Hàng hoá
+7. Trái phiếu
+
+### 3. Theo dõi
+Chỉ xuất hiện khi danh sách `profile.watchlist` không rỗng và có tin tức khớp với mã/từ khóa theo dõi.
+
+### 4. Lưu ý về nguồn
+Chỉ xuất hiện khi kết quả lệnh `brief` có khối `NGUỒN LỖI` (hoặc lệnh `health`) ghi nhận nguồn tin gặp lỗi kết nối ("Báo X hôm nay không đọc được").
+
+### Quy tắc biên tập nội dung
+- Tuyệt đối không dùng các thuật ngữ kỹ thuật trong đầu ra bản tin gửi người dùng: cấm xuất hiện các từ `watchlist`, `config set`, `cluster`, `URL` (thay bằng từ "liên kết"), `[Suy luận]`.
+- Bỏ qua các mục không có tin tức (omit empty sections / không hiển thị phần rỗng).
+- Chỉ dùng các liên kết có trong kết quả lệnh `brief`; tuyệt đối không tự bịa đặt hay chỉnh sửa liên kết.
+- Khi 2 nguồn đưa số liệu mâu thuẫn, nêu rõ điều này trong một vế câu.
+- Đánh dấu suy luận hoặc phân tích thêm của mô hình bằng cụm từ "(nhận định của AI)".
+- Không loại bỏ tin tức chỉ vì tin đó chỉ có một nguồn duy nhất.

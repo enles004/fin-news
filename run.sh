@@ -5,6 +5,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_PATH="$SCRIPT_DIR/core/cli.py"
+INSTALL_MD="$SCRIPT_DIR/INSTALL.md"
 
 # 1. Check for standard python >= 3.11
 for py_cmd in python3 python; do
@@ -33,7 +34,7 @@ case "$choice" in
         exec uv run python "$CLI_PATH" "$@"
         ;;
     *)
-        echo "Installation cancelled. Please install Python 3.11+ or uv manually: https://astral.sh/uv"
+        echo "Installation cancelled. Xem INSTALL.md để cài đặt: $INSTALL_MD"
         exit 1
         ;;
 esac

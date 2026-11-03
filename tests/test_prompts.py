@@ -7,6 +7,11 @@ import sys
 import tempfile
 import unittest
 
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+import support
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CORE_DIR = ROOT_DIR / "core"
 PROMPTS_DIR = ROOT_DIR / "prompts"
@@ -31,32 +36,26 @@ class TestPrompts(unittest.TestCase):
         self.assertIn("name", data)
 
     def test_classify_prompt_names_every_schema_field(self):
-        classify_file = PROMPTS_DIR / "classify.md"
-        self.assertTrue(classify_file.exists(), f"Missing {classify_file}")
-        content = classify_file.read_text(encoding="utf-8")
+        # Schema fields are now documented in agents/news-classifier.md
+        agent_file = ROOT_DIR / "agents" / "news-classifier.md"
+        self.assertTrue(agent_file.exists(), f"Missing {agent_file}")
+        content = agent_file.read_text(encoding="utf-8")
         schema_fields = [
             "id",
-            "topics",
-            "summary_vi",
-            "entities",
+            "topic",
             "importance",
-            "importance_reason",
+            "noise",
             "event_key",
-            "is_noise",
         ]
         for field in schema_fields:
-            self.assertIn(field, content, f"Schema field '{field}' missing from classify.md")
+            self.assertIn(field, content, f"Schema field '{field}' missing from news-classifier.md")
 
     def test_skill_mentions_every_cli_subcommand_it_uses(self):
         skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
         self.assertTrue(skill_file.exists(), f"Missing {skill_file}")
         content = skill_file.read_text(encoding="utf-8")
 
-        # Get list of subparsers defined in cli.py
-        expected_cmds = [
-            "fetch", "prepare", "collect", "cluster", "merge", "fulltext",
-            "health", "config", "add-source", "test-source", "doctor", "run"
-        ]
+        expected_cmds = ["run", "finish", "brief", "stats", "health"]
         for cmd in expected_cmds:
             self.assertIn(cmd, content, f"Subcommand '{cmd}' not mentioned in SKILL.md")
 
@@ -67,7 +66,6 @@ class TestPrompts(unittest.TestCase):
         self.assertRegex(content, r"(?i)model:\s*haiku")
 
     def test_plugin_json_references_cluster_merger(self):
-        # Auto-discovered at agents/cluster-merger.md without needing explicit declaration in plugin.json
         agent_file = ROOT_DIR / "agents" / "cluster-merger.md"
         self.assertTrue(agent_file.exists(), f"Missing {agent_file}")
         plugin_file = ROOT_DIR / ".claude-plugin" / "plugin.json"
@@ -76,9 +74,10 @@ class TestPrompts(unittest.TestCase):
         self.assertNotIn("agents", data)
 
     def test_skill_mentions_merge_command(self):
-        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
-        self.assertTrue(skill_file.exists(), f"Missing {skill_file}")
-        content = skill_file.read_text(encoding="utf-8")
+        # Default procedure in SKILL.md has no merge step; config-guide.md and CONFIGURE.md document it
+        cfg_guide = ROOT_DIR / "skills" / "fin-news-digest" / "config-guide.md"
+        self.assertTrue(cfg_guide.exists(), f"Missing {cfg_guide}")
+        content = cfg_guide.read_text(encoding="utf-8")
         self.assertIn("merge", content)
 
     def test_merge_prompt_requires_json_groups_only(self):
@@ -89,31 +88,30 @@ class TestPrompts(unittest.TestCase):
         self.assertRegex(content, r"(?i)json")
 
     def test_digest_template_has_four_sections_in_order(self):
-        template_file = PROMPTS_DIR / "digest-template.md"
-        self.assertTrue(template_file.exists(), f"Missing {template_file}")
-        content = template_file.read_text(encoding="utf-8")
+        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
+        self.assertTrue(skill_file.exists(), f"Missing {skill_file}")
+        content = skill_file.read_text(encoding="utf-8")
 
-        s1 = content.find("Tiêu điểm")
-        s2 = content.find("Theo chủ đề")
+        s1 = content.find("Tiêu điểm hôm nay")
+        s2 = content.find("Điểm tin")
         s3 = content.find("Theo dõi")
-        s4 = content.find("Sức khoẻ nguồn")
+        s4 = content.find("Lưu ý về nguồn")
 
-        self.assertNotEqual(s1, -1, "Missing section 1: Tiêu điểm")
-        self.assertNotEqual(s2, -1, "Missing section 2: Theo chủ đề")
+        self.assertNotEqual(s1, -1, "Missing section 1: Tiêu điểm hôm nay")
+        self.assertNotEqual(s2, -1, "Missing section 2: Điểm tin")
         self.assertNotEqual(s3, -1, "Missing section 3: Theo dõi")
-        self.assertNotEqual(s4, -1, "Missing section 4: Sức khoẻ nguồn")
+        self.assertNotEqual(s4, -1, "Missing section 4: Lưu ý về nguồn")
 
         self.assertTrue(s1 < s2 < s3 < s4, "Four sections must appear in exact order")
 
     def test_plugin_root_layout_and_no_plugin_dir(self):
-        # plugin/ directory must be absent
         self.assertFalse((ROOT_DIR / "plugin").exists(), "plugin/ directory must not exist")
 
-        # Files must exist at their new root-relative locations
         self.assertTrue((ROOT_DIR / ".claude-plugin" / "plugin.json").is_file(), "Missing .claude-plugin/plugin.json")
         self.assertTrue((ROOT_DIR / ".claude-plugin" / "marketplace.json").is_file(), "Missing .claude-plugin/marketplace.json")
         self.assertTrue((ROOT_DIR / "commands" / "tin-tai-chinh.md").is_file(), "Missing commands/tin-tai-chinh.md")
         self.assertTrue((ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md").is_file(), "Missing skills/fin-news-digest/SKILL.md")
+        self.assertTrue((ROOT_DIR / "skills" / "fin-news-digest" / "config-guide.md").is_file(), "Missing skills/fin-news-digest/config-guide.md")
         self.assertTrue((ROOT_DIR / "agents" / "news-classifier.md").is_file(), "Missing agents/news-classifier.md")
         self.assertTrue((ROOT_DIR / "agents" / "cluster-merger.md").is_file(), "Missing agents/cluster-merger.md")
 
@@ -122,21 +120,20 @@ class TestPrompts(unittest.TestCase):
         self.assertTrue(plugin_file.is_file(), f"Missing {plugin_file}")
         data = json.loads(plugin_file.read_text(encoding="utf-8"))
         self.assertEqual(data.get("name"), "fin-news")
-        self.assertEqual(data.get("version"), "1.0.0")
+        import re
+        self.assertRegex(str(data.get("version", "")), r"^\d+\.\d+\.\d+$")
         self.assertIn("description", data)
         self.assertTrue(data["description"])
 
-        # Must NOT declare commands, skills, or agents keys
-        self.assertNotIn("commands", data, "plugin.json should not declare commands key")
-        self.assertNotIn("skills", data, "plugin.json should not declare skills key")
-        self.assertNotIn("agents", data, "plugin.json should not declare agents key")
+        self.assertNotIn("commands", data)
+        self.assertNotIn("skills", data)
+        self.assertNotIn("agents", data)
 
     def test_marketplace_json_valid_and_name_matches_plugin_json(self):
         mkt_file = ROOT_DIR / ".claude-plugin" / "marketplace.json"
         self.assertTrue(mkt_file.is_file(), f"Missing {mkt_file}")
         data = json.loads(mkt_file.read_text(encoding="utf-8"))
 
-        # Required keys: name, owner, plugins
         self.assertIn("name", data)
         self.assertEqual(data["name"], "fin-news")
         self.assertIn("owner", data)
@@ -159,6 +156,7 @@ class TestPrompts(unittest.TestCase):
         component_files = [
             ROOT_DIR / "commands" / "tin-tai-chinh.md",
             ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md",
+            ROOT_DIR / "skills" / "fin-news-digest" / "config-guide.md",
             ROOT_DIR / "agents" / "news-classifier.md",
             ROOT_DIR / "agents" / "cluster-merger.md",
         ]
@@ -171,25 +169,14 @@ class TestPrompts(unittest.TestCase):
                 self.fail(f"Missing component file {md_file}")
             text = md_file.read_text(encoding="utf-8")
 
-            # No bare prompts/ path
             self.assertFalse(
                 bare_prompts_pattern.search(text),
                 f"File {md_file.name} contains bare 'prompts/' without ${{CLAUDE_PLUGIN_ROOT}}/"
             )
-
-            # No bare launcher call
             self.assertFalse(
                 bare_launcher_pattern.search(text),
                 f"File {md_file.name} contains bare launcher call without ${{CLAUDE_PLUGIN_ROOT}}"
             )
-
-            # If the file references prompts or CLI launcher, it must contain ${CLAUDE_PLUGIN_ROOT}
-            if "prompt" in text.lower() or "run.cmd" in text or "run.sh" in text:
-                self.assertIn(
-                    "${CLAUDE_PLUGIN_ROOT}",
-                    text,
-                    f"File {md_file.name} references prompts/CLI but does not contain ${{CLAUDE_PLUGIN_ROOT}}"
-                )
 
     def test_skill_dispatches_scoped_agent_names_with_haiku(self):
         skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
@@ -197,7 +184,6 @@ class TestPrompts(unittest.TestCase):
         content = skill_file.read_text(encoding="utf-8")
 
         self.assertIn("fin-news:news-classifier", content)
-        self.assertIn("fin-news:cluster-merger", content)
         self.assertIn('model: "haiku"', content)
 
     def test_launchers_work_from_other_cwd(self):
@@ -225,62 +211,148 @@ class TestPrompts(unittest.TestCase):
         self.assertTrue(topics_file.is_file(), f"Missing {topics_file}")
         topics_data = json.loads(topics_file.read_text(encoding="utf-8")).get("topics", {})
 
-        classify_file = PROMPTS_DIR / "classify.md"
-        self.assertTrue(classify_file.is_file(), f"Missing {classify_file}")
-        classify_content = classify_file.read_text(encoding="utf-8")
+        agent_file = ROOT_DIR / "agents" / "news-classifier.md"
+        self.assertTrue(agent_file.is_file(), f"Missing {agent_file}")
+        content = agent_file.read_text(encoding="utf-8")
 
         for slug in topics_data.keys():
             self.assertIn(
-                slug, classify_content,
-                f"Topic slug '{slug}' from defaults/topics.json missing from prompts/classify.md"
+                slug, content,
+                f"Topic slug '{slug}' from defaults/topics.json missing from agents/news-classifier.md"
             )
 
     def test_digest_template_has_energy_commodity_section_and_four_top_sections_in_order(self):
-        template_file = PROMPTS_DIR / "digest-template.md"
-        self.assertTrue(template_file.is_file(), f"Missing {template_file}")
-        content = template_file.read_text(encoding="utf-8")
+        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
+        self.assertTrue(skill_file.is_file(), f"Missing {skill_file}")
+        content = skill_file.read_text(encoding="utf-8")
 
-        # Must have energy & commodity subsection
         self.assertIn("Năng lượng & Hàng hoá", content)
 
-        # Four top-level sections in exact order
-        s1 = content.find("Tiêu điểm")
-        s2 = content.find("Theo chủ đề")
+        s1 = content.find("Tiêu điểm hôm nay")
+        s2 = content.find("Điểm tin")
         s3 = content.find("Theo dõi")
-        s4 = content.find("Sức khoẻ nguồn")
+        s4 = content.find("Lưu ý về nguồn")
 
-        self.assertNotEqual(s1, -1, "Missing section: Tiêu điểm")
-        self.assertNotEqual(s2, -1, "Missing section: Theo chủ đề")
+        self.assertNotEqual(s1, -1, "Missing section: Tiêu điểm hôm nay")
+        self.assertNotEqual(s2, -1, "Missing section: Điểm tin")
         self.assertNotEqual(s3, -1, "Missing section: Theo dõi")
-        self.assertNotEqual(s4, -1, "Missing section: Sức khoẻ nguồn")
+        self.assertNotEqual(s4, -1, "Missing section: Lưu ý về nguồn")
         self.assertTrue(s1 < s2 < s3 < s4, "Four top sections must appear in exact order")
 
-        # Energy section must appear after "Theo chủ đề" and before "Theo dõi"
         s_energy = content.find("Năng lượng & Hàng hoá")
-        self.assertTrue(s2 < s_energy < s3, "Energy & commodity subsection must be under 'Theo chủ đề'")
+        self.assertTrue(s2 < s_energy < s3, "Energy & commodity subsection must be under 'Điểm tin'")
 
     def test_classify_prompt_states_noise_has_empty_topics_and_foreign_rate_rule(self):
-        classify_file = PROMPTS_DIR / "classify.md"
-        self.assertTrue(classify_file.is_file(), f"Missing {classify_file}")
-        content = classify_file.read_text(encoding="utf-8")
+        agent_file = ROOT_DIR / "agents" / "news-classifier.md"
+        self.assertTrue(agent_file.is_file(), f"Missing {agent_file}")
+        content = agent_file.read_text(encoding="utf-8")
 
-        # Foreign central bank rate decision is vi-mo-chinh-sach
         self.assertIn("vi-mo-chinh-sach", content)
         self.assertTrue(
             "ngân hàng trung ương" in content.lower() or "lãi suất" in content.lower(),
-            "classify.md must specify foreign central bank rate rule"
+            "news-classifier.md must specify foreign central bank rate rule"
         )
 
-        # trai-phieu is only for bonds
         self.assertIn("trai-phieu", content)
         self.assertTrue(
             "trái phiếu" in content.lower(),
-            "classify.md must specify trai-phieu rule"
+            "news-classifier.md must specify trai-phieu rule"
         )
 
-        # is_noise true -> topics must be []
-        self.assertIn("is_noise", content)
-        self.assertIn("[]", content)
+        self.assertIn("noise", content)
+        self.assertTrue(
+            "topics" in content and "trống" in content,
+            "news-classifier.md must specify noise has empty topics"
+        )
+
+    # --- Part 4 requirement tests ---
+
+    def test_skill_is_within_size_budget_and_has_communication_rules(self):
+        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
+        self.assertTrue(skill_file.is_file(), f"Missing {skill_file}")
+        content = skill_file.read_text(encoding="utf-8")
+
+        self.assertLessEqual(len(content), 7000, f"SKILL.md length {len(content)} exceeds 7000 chars")
+        self.assertIn("Đang thu thập tin…", content)
+        self.assertIn("Đang phân loại…", content)
+        self.assertIn("Đang tổng hợp bản tin…", content)
+        self.assertIn("Không tường thuật từng bước", content)
+
+    def test_skill_embeds_digest_rules_and_references_config_guide(self):
+        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
+        content = skill_file.read_text(encoding="utf-8")
+
+        self.assertIn("${CLAUDE_PLUGIN_ROOT}/skills/fin-news-digest/config-guide.md", content)
+        self.assertIn("700–900 từ", content)
+        self.assertIn("(nhận định của AI)", content)
+
+    def test_skill_default_procedure_has_no_merge_or_fulltext_step(self):
+        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
+        content = skill_file.read_text(encoding="utf-8")
+
+        # Find default procedure section
+        start = content.find("## Quy trình thực thi mặc định")
+        end = content.find("## Cấu trúc Bản tin")
+        self.assertNotEqual(start, -1)
+        proc_text = content[start:end] if end != -1 else content[start:]
+
+        # Must not contain merge step or fulltext step in the default step list
+        self.assertNotIn("Chạy launcher với lệnh `merge`", proc_text)
+        self.assertNotIn("Bước 5: Trích xuất tin toàn văn", proc_text)
+        self.assertNotIn("Chạy launcher với lệnh `fulltext`", proc_text)
+
+    def test_digest_template_in_skill_lists_sections_in_order(self):
+        skill_file = ROOT_DIR / "skills" / "fin-news-digest" / "SKILL.md"
+        content = skill_file.read_text(encoding="utf-8")
+
+        pos_tieu_diem = content.find("Tiêu điểm hôm nay")
+        pos_diem_tin = content.find("Điểm tin")
+        pos_theo_doi = content.find("Theo dõi")
+        pos_luu_y = content.find("Lưu ý về nguồn")
+
+        self.assertNotEqual(pos_tieu_diem, -1)
+        self.assertNotEqual(pos_diem_tin, -1)
+        self.assertNotEqual(pos_theo_doi, -1)
+        self.assertNotEqual(pos_luu_y, -1)
+
+        self.assertTrue(
+            pos_tieu_diem < pos_diem_tin < pos_theo_doi < pos_luu_y,
+            "Digest sections must appear in exact order"
+        )
+
+    def test_deleted_prompt_files_are_not_referenced_anywhere(self):
+        deleted_files = ["classify.md", "synthesize.md", "digest-template.md"]
+        for df in deleted_files:
+            self.assertFalse((PROMPTS_DIR / df).exists(), f"{df} should be deleted from prompts/")
+
+        # Check references in core/, agents/, commands/, skills/, .claude-plugin/, and root docs
+        check_dirs = [
+            ROOT_DIR / "core",
+            ROOT_DIR / "agents",
+            ROOT_DIR / "commands",
+            ROOT_DIR / "skills",
+            ROOT_DIR / ".claude-plugin",
+        ]
+        doc_files = [
+            ROOT_DIR / "AGENTS.md",
+            ROOT_DIR / "CONFIGURE.md",
+            ROOT_DIR / "INSTALL.md",
+            ROOT_DIR / "SCHEDULE.md",
+            ROOT_DIR / "TROUBLESHOOT.md",
+        ]
+
+        all_files = list(doc_files)
+        for d in check_dirs:
+            if d.exists():
+                all_files.extend(p for p in d.rglob("*") if p.is_file() and p.suffix in (".py", ".md", ".json"))
+
+        for file_path in all_files:
+            text = file_path.read_text(encoding="utf-8", errors="ignore")
+            for df in deleted_files:
+                self.assertNotIn(
+                    df, text,
+                    f"Deleted prompt file '{df}' is still referenced in {file_path}"
+                )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 """Feed discovery, testing, and adding module."""
 from html.parser import HTMLParser
+from html import unescape as html_unescape
+import re
 from typing import Any, List, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -69,6 +71,7 @@ def add_source(
     *,
     source_id: Optional[str] = None,
     group: str = "general",
+    label: Optional[str] = None,
     opener=None
 ) -> dict:
     """Discover feeds from page URL and add to sources configuration."""
@@ -76,10 +79,26 @@ def add_source(
     if not feeds:
         return {"found": False, "hint": "scrape"}
 
+    domain = urlparse(page_url).netloc
     if not source_id:
-        domain = urlparse(page_url).netloc
         parts = domain.split(".")
         source_id = parts[0] if parts[0] != "www" or len(parts) < 2 else parts[1]
+
+    # Resolve default label from page <title> or host name
+    if not label:
+        host = domain
+        if host.startswith("www."):
+            host = host[4:]
+        page_title = ""
+        try:
+            body = fetch.fetch_url(page_url, timeout=10, retries=1, opener=opener)
+            text = body.decode("utf-8", errors="ignore")
+            m = re.search(r'<title[^>]*>(.*?)</title>', text, re.IGNORECASE | re.DOTALL)
+            if m:
+                page_title = html_unescape(m.group(1)).strip()
+        except Exception:
+            pass
+        label = page_title or host or source_id
 
     # Sample titles from first feed
     sample_titles = []
@@ -95,6 +114,7 @@ def add_source(
         "url": feed_url_cfg,
         "kind": "rss",
         "group": group,
+        "label": label,
         "enabled": True,
         "cookie": False,
         "mixed": False,
@@ -103,6 +123,7 @@ def add_source(
 
     return {
         "source_id": source_id,
+        "label": label,
         "feed_urls": feeds,
         "sample_titles": sample_titles,
     }

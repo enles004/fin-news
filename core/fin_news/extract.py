@@ -101,20 +101,22 @@ class SafeTreeBuilder(HTMLParser):
             self.current.children.append(data)
 
 
-def _contains_step3_or_article(node: DOMNode) -> bool:
-    """Check if node or any descendant has tag article or step3 class."""
+def _contains_step3_or_article(node: DOMNode, hints: tuple[str, ...] = ()) -> bool:
+    """Check if node or any descendant has tag article, hints, or step3 class."""
     if node.tag == 'article':
         return True
     class_id = (node.get_attr("class") + " " + node.get_attr("id")).lower()
+    if any(h.lower() in class_id for h in hints if h):
+        return True
     if any(s3 in class_id for s3 in STEP3_CLASSES):
         return True
     for c in node.children:
-        if isinstance(c, DOMNode) and _contains_step3_or_article(c):
+        if isinstance(c, DOMNode) and _contains_step3_or_article(c, hints):
             return True
     return False
 
 
-def prune_tree(node: DOMNode):
+def prune_tree(node: DOMNode, hints: tuple[str, ...] = ()):
     """Prune discarded tags and class/id elements recursively in-place."""
     new_children: List[Union[DOMNode, str]] = []
     for c in node.children:
@@ -125,11 +127,11 @@ def prune_tree(node: DOMNode):
                 is_discard = True
             elif c.tag not in ('html', 'body') and any(sub in class_id for sub in DISCARD_SUBSTRINGS):
                 # Never discard layout containers that contain the actual article/step3 body
-                if not _contains_step3_or_article(c):
+                if not _contains_step3_or_article(c, hints):
                     is_discard = True
 
             if not is_discard:
-                prune_tree(c)
+                prune_tree(c, hints)
                 new_children.append(c)
         else:
             new_children.append(c)
@@ -236,17 +238,24 @@ def is_valid_candidate(text: str, title_words: List[str]) -> bool:
     return True
 
 
-def extract_article_text(html: str, *, title: str = "", max_chars: int = 3500) -> str:
-    """Extract clean article text from HTML according to priority algorithm.
+def extract_with_tier(
+    html: str,
+    *,
+    title: str = "",
+    max_chars: int = 3500,
+    hints: tuple[str, ...] = ()
+) -> tuple[str, str]:
+    """Extract clean article text and reporting tier from HTML.
 
-    Priority:
-    1. JSON-LD: NewsArticle/Article with articleBody
-    2. The text of the <article> element with the most paragraph text
-    3. The container (div/section) whose class/id contains one of STEP3_CLASSES with the most paragraph text
-    4. Fallback: the container with the greatest total length of <p> elements of >= 40 chars each
+    Tiers:
+    - 'json-ld': NewsArticle/Article with articleBody
+    - 'article': <article> element
+    - 'hint': container matching body_hints (tried first) or STEP3_CLASSES
+    - 'density': paragraph density fallback
+    - '': nothing usable
     """
     if not html:
-        return ""
+        return "", ""
 
     title_words = get_title_words(title) if title else []
 
@@ -281,12 +290,12 @@ def extract_article_text(html: str, *, title: str = "", max_chars: int = 3500) -
                             lines = [clean_paragraph_text(body_unescaped)]
                         text = format_text_candidate(lines, max_chars)
                         if is_valid_candidate(text, title_words):
-                            return text
+                            return text, "json-ld"
         except Exception:
             pass
 
     # Prune DOM tree
-    prune_tree(parser.root)
+    prune_tree(parser.root, hints=hints)
 
     def p_text_len(node: DOMNode) -> int:
         return sum(len(p) for p in get_paragraphs_from_node(node))
@@ -299,9 +308,25 @@ def extract_article_text(html: str, *, title: str = "", max_chars: int = 3500) -
             ps = get_paragraphs_from_node(cand_node)
             text = format_text_candidate(ps, max_chars)
             if is_valid_candidate(text, title_words):
-                return text
+                return text, "article"
 
-    # 3. Container (div/section) whose class/id contains one of STEP3_CLASSES with the most paragraph text
+    # 3. Hint tier: extra hints tried before built-in STEP3_CLASSES
+    for h in hints:
+        if not h:
+            continue
+        h_lower = h.lower()
+        cand_containers = find_all(
+            parser.root,
+            lambda n: n.tag in ('div', 'section', 'article', 'main') and h_lower in (n.get_attr('class') + ' ' + n.get_attr('id')).lower()
+        )
+        if cand_containers:
+            cand_containers.sort(key=lambda c: p_text_len(c), reverse=True)
+            for cand_node in cand_containers:
+                ps = get_paragraphs_from_node(cand_node)
+                text = format_text_candidate(ps, max_chars)
+                if is_valid_candidate(text, title_words):
+                    return text, "hint"
+
     step3_containers = find_all(
         parser.root,
         lambda n: n.tag in ('div', 'section') and any(
@@ -314,7 +339,7 @@ def extract_article_text(html: str, *, title: str = "", max_chars: int = 3500) -
             ps = get_paragraphs_from_node(cand_node)
             text = format_text_candidate(ps, max_chars)
             if is_valid_candidate(text, title_words):
-                return text
+                return text, "hint"
 
     # 4. Fallback: container with the greatest total length of <p> elements >= 40 chars each
     candidate_containers = find_all(parser.root, lambda n: n.tag in ('div', 'section', 'article', 'main'))
@@ -327,6 +352,12 @@ def extract_article_text(html: str, *, title: str = "", max_chars: int = 3500) -
             ps = get_paragraphs_from_node(cand_node)
             text = format_text_candidate(ps, max_chars)
             if is_valid_candidate(text, title_words):
-                return text
+                return text, "density"
 
-    return ""
+    return "", ""
+
+
+def extract_article_text(html: str, *, title: str = "", max_chars: int = 3500) -> str:
+    """Extract clean article text from HTML according to priority algorithm."""
+    text, _ = extract_with_tier(html, title=title, max_chars=max_chars)
+    return text

@@ -15,6 +15,7 @@ from fin_news import config
 from fin_news import discover
 from fin_news import doctor
 from fin_news import fetch
+from fin_news import fulltext_check
 from fin_news import health
 from fin_news import pipeline
 
@@ -39,6 +40,7 @@ def main(argv=None) -> int:
             pass
 
     parser = argparse.ArgumentParser(description="Fin-News CLI workflow tool")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Detailed output")
     subparsers = parser.add_subparsers(dest="subcommand", help="Available subcommands")
 
     # fetch
@@ -49,19 +51,35 @@ def main(argv=None) -> int:
     fetch_parser.add_argument("--since", help="Fetch articles newer than e.g. 7d")
     fetch_parser.add_argument("--query", help="Keyword query (bypasses quota)")
     fetch_parser.add_argument("--topics", help="Comma-separated topic slugs")
+    fetch_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
 
     # prepare
-    subparsers.add_parser("prepare", help="Dedupe, filter, and prepare System 1 batches")
+    prepare_parser = subparsers.add_parser("prepare", help="Dedupe, filter, and prepare System 1 batches")
+    prepare_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
 
     # collect
-    subparsers.add_parser("collect", help="Merge System 1 classification results")
+    collect_parser = subparsers.add_parser("collect", help="Merge System 1 classification results")
+    collect_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
 
     # cluster
     cluster_parser = subparsers.add_parser("cluster", help="Cluster articles and prepare merge plan")
     cluster_parser.add_argument("--skip-merge", action="store_true", help="Skip merge step and write clusters.json directly")
+    cluster_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
+
+    # finish
+    finish_parser = subparsers.add_parser("finish", help="Collect and cluster in one call")
+    finish_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
+
+    # brief
+    brief_parser = subparsers.add_parser("brief", help="Print compact brief pack with source links")
+    brief_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
+
+    # stats
+    subparsers.add_parser("stats", help="Print step execution timings of the last run")
 
     # merge
-    subparsers.add_parser("merge", help="Apply cluster merge results and write clusters.json")
+    merge_parser = subparsers.add_parser("merge", help="Apply cluster merge results and write clusters.json")
+    merge_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
 
     # fulltext
     fulltext_parser = subparsers.add_parser("fulltext", help="Fetch article fulltext for clusters")
@@ -82,13 +100,16 @@ def main(argv=None) -> int:
     add_src_parser.add_argument("url", help="URL of website or feed")
     add_src_parser.add_argument("--id", dest="source_id", help="Source ID identifier")
     add_src_parser.add_argument("--group", default="general", help="Source group")
+    add_src_parser.add_argument("--label", help="Friendly source label")
 
     # test-source
     test_src_parser = subparsers.add_parser("test-source", help="Test a specific source")
     test_src_parser.add_argument("source_id", help="Source ID to test")
+    test_src_parser.add_argument("--fulltext", action="store_true", help="Test full-text extraction for source")
 
     # doctor
-    subparsers.add_parser("doctor", help="Run diagnostic health checks")
+    doctor_parser = subparsers.add_parser("doctor", help="Run diagnostic health checks")
+    doctor_parser.add_argument("--fulltext", action="store_true", help="Diagnose live full-text extraction across all sources")
 
     # run
     run_parser = subparsers.add_parser("run", help="Run fetch and prepare, stopping before classification")
@@ -97,6 +118,7 @@ def main(argv=None) -> int:
     run_parser.add_argument("--limit", type=int, help="Per-source article limit")
     run_parser.add_argument("--since", help="Fetch articles newer than e.g. 7d")
     run_parser.add_argument("--query", help="Keyword query")
+    run_parser.add_argument("--verbose", "-v", action="store_true", default=argparse.SUPPRESS, help="Detailed output")
 
     args = parser.parse_args(argv)
     if not args.subcommand:
@@ -104,6 +126,7 @@ def main(argv=None) -> int:
         return 0
 
     cmd = args.subcommand
+    verbose = getattr(args, "verbose", False)
 
     if cmd == "fetch":
         return pipeline.run_fetch(
@@ -113,19 +136,29 @@ def main(argv=None) -> int:
             since_str=args.since,
             query=args.query,
             topics=_parse_list_arg(args.topics),
+            verbose=verbose,
         )
 
     elif cmd == "prepare":
-        return pipeline.run_prepare()
+        return pipeline.run_prepare(verbose=verbose)
 
     elif cmd == "collect":
-        return pipeline.run_collect()
+        return pipeline.run_collect(verbose=verbose)
 
     elif cmd == "cluster":
-        return pipeline.run_cluster(skip_merge=args.skip_merge)
+        return pipeline.run_cluster(skip_merge=args.skip_merge, verbose=verbose)
+
+    elif cmd == "finish":
+        return pipeline.run_finish(verbose=verbose)
+
+    elif cmd == "brief":
+        return pipeline.run_brief(verbose=verbose)
+
+    elif cmd == "stats":
+        return pipeline.run_stats()
 
     elif cmd == "merge":
-        return pipeline.run_merge()
+        return pipeline.run_merge(verbose=verbose)
 
     elif cmd == "fulltext":
         return pipeline.run_fulltext(args.cluster_id)
@@ -167,7 +200,7 @@ def main(argv=None) -> int:
             return 0
 
     elif cmd == "add-source":
-        res = discover.add_source(args.url, source_id=args.source_id, group=args.group)
+        res = discover.add_source(args.url, source_id=args.source_id, group=args.group, label=args.label)
         if not res.get("found", True):
             print(f"Không tìm thấy feed RSS ({res.get('hint')}).")
             return 1
@@ -181,38 +214,76 @@ def main(argv=None) -> int:
         if args.source_id not in sources:
             print(f"Nguồn '{args.source_id}' không tồn tại trong cấu hình.")
             return 1
-        h = discover.test_source(args.source_id, sources[args.source_id])
-        print(f"[{h.status.upper()}] {h.source_id}: {h.detail}")
-        return 0 if h.status == "ok" else 1
+        if getattr(args, "fulltext", False):
+            profile = config.load("profile")
+            res = fulltext_check.check_source(args.source_id, sources[args.source_id], profile)
+            health.record_fulltext_health([res])
+            status = res.get("status", "")
+            tier = res.get("tier", "")
+            chars = res.get("chars", 0)
+            url = res.get("url", "")
+            text = res.get("text", "")
+            err = res.get("error", "")
+
+            print(f"[{status.upper()}] {args.source_id}")
+            print(f"- Tầng: {tier}")
+            print(f"- Số ký tự: {chars}")
+            print(f"- URL: {url}")
+            if err:
+                print(f"- Lỗi: {err}")
+            if text:
+                sample_text = text[:200].replace("\n", " ")
+                print(f"- Trích đoạn: {sample_text}...")
+
+            return 0 if status in ("full", "degraded") else 1
+        else:
+            h = discover.test_source(args.source_id, sources[args.source_id])
+            print(f"[{h.status.upper()}] {h.source_id}: {h.detail}")
+            return 0 if h.status == "ok" else 1
 
     elif cmd == "doctor":
-        results = doctor.run()
-        print("=== BÁO CÁO DOCTOR ===")
-        all_passed = True
-        for name, ok, detail in results:
-            status_str = "OK" if ok else "FAIL"
-            print(f"[{status_str:4}] {name:30} : {detail}")
-            if not ok:
-                all_passed = False
-        return 0 if all_passed else 1
+        if getattr(args, "fulltext", False):
+            results = doctor.run_fulltext()
+            print("=== BÁO CÁO TOÀN VĂN (DOCTOR --FULLTEXT) ===")
+            print(f"{'NGUỒN':<20} | {'TRẠNG THÁI':<12} | {'TẦNG':<10} | {'KÝ TỰ':<6} | URL")
+            print("-" * 80)
+            has_error = False
+            for r in results:
+                st = r.get("status", "")
+                sid = r.get("source", "")
+                tier = r.get("tier", "")
+                chars = r.get("chars", 0)
+                url = r.get("url", "")
+                print(f"{sid:<20} | {st:<12} | {tier:<10} | {chars:<6} | {url}")
+                if st in ("error", "summary_only"):
+                    has_error = True
+            if has_error:
+                install_p, trouble_p = doctor.get_doc_paths()
+                print(f"\nXem hướng dẫn: {install_p} và {trouble_p}")
+            return 0 if not has_error else 1
+        else:
+            results = doctor.run()
+            print("=== BÁO CÁO DOCTOR ===")
+            all_passed = True
+            for name, ok, detail in results:
+                status_str = "OK" if ok else "FAIL"
+                print(f"[{status_str:4}] {name:30} : {detail}")
+                if not ok:
+                    all_passed = False
+            if not all_passed:
+                install_p, trouble_p = doctor.get_doc_paths()
+                print(f"\nXem hướng dẫn: {install_p} và {trouble_p}")
+            return 0 if all_passed else 1
 
     elif cmd == "run":
-        f_ret = pipeline.run_fetch(
+        return pipeline.run_run(
             groups=_parse_list_arg(args.groups),
             only=_parse_list_arg(args.only),
             limit=args.limit,
             since_str=args.since,
             query=args.query,
+            verbose=verbose,
         )
-        if f_ret != 0:
-            return f_ret
-        p_ret = pipeline.run_prepare()
-        if p_ret != 0:
-            return p_ret
-        print("\nHoàn thành fetch + prepare.")
-        print("Bước tiếp theo: Dispatch các subagent news-classifier song song theo từng batch,")
-        print("sau đó gọi 'collect' và 'cluster'.")
-        return 0
 
     return 0
 

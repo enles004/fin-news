@@ -4,6 +4,11 @@ from pathlib import Path
 import sys
 import unittest
 
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+import support
+
 CORE_DIR = Path(__file__).resolve().parent.parent / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))

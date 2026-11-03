@@ -46,9 +46,19 @@ Tài liệu hướng dẫn xử lý các lỗi thường gặp trong quá trình
     ```
 
 ## 7. Các mã thoát trong quy trình (Pipeline Exit Codes)
-- **Mã thoát 3 (`collect` hoặc `merge`):**
+- **Mã thoát 3 (`finish`, `collect` hoặc `merge`):**
+  - Khi chạy `finish`: một số lô batch chưa có kết quả hoặc có bài viết bị thiếu kết quả/sai schema. Hệ thống in ra các dòng `RERUN <đường dẫn batch>` và thoát mã 3. Kỹ năng sẽ tự động dispatch lại subagent cho các batch đó một lần duy nhất.
   - Khi chạy `collect`: một số bài viết bị thiếu kết quả phân loại hoặc sai schema. Kỹ năng sẽ tự động khởi chạy lại các ID lỗi một lần duy nhất.
   - Khi chạy `merge`: file `merge-result.json` có nhóm cluster không hợp lệ (ID lạ, trùng lặp hoặc singleton). Hệ thống đã áp dụng các nhóm hợp lệ còn lại và thoát mã 3 để kỹ năng có thể chạy lại subagent `cluster-merger` một lần.
 - **Mã thoát 4 (`merge`):**
   - Không tìm thấy `merge-result.json`. Cần đảm bảo subagent `cluster-merger` đã hoàn thành và lưu file trước khi chạy lệnh `merge`.
 - **Trạng thái trích xuất fulltext (`fulltext/_status.json`):** Trạng thái mỗi bài gồm `"full"` (toàn văn), `"summary_only"` (bóc tách rỗng, chuyển dùng summary_raw của RSS) hoặc `"error"` (lỗi tải URL, không bị nuốt lỗi).
+
+## 8. Toàn văn bị suy giảm hoặc hỏng
+Khi bài viết không bóc tách được toàn văn hoặc bị rơi vào tầng dự phòng:
+1. Chạy chẩn đoán nguồn: `run.cmd test-source <ID> --fulltext`.
+2. Đọc giá trị `tier` (tầng trích xuất: `json-ld`, `article`, `hint` ≥ 300 ký tự đạt trạng thái `full`; tầng `density` ≥ 300 ký tự là `degraded`; < 300 ký tự hoặc rỗng là `summary_only`).
+3. Mở mã nguồn HTML trang bài viết để kiểm tra class hoặc id của thẻ chứa nội dung chính (body container).
+4. Thiết lập gợi ý bóc tách cho nguồn: `run.cmd config set sources sources.<ID>.body_hints '["ten-class-moi"]'`. Có thể dùng `profile.body_hints` cho gợi ý áp dụng toàn hệ thống.
+5. Chạy lại kiểm tra: `run.cmd test-source <ID> --fulltext` để xác nhận trạng thái chuyển sang `full`.
+6. Trạng thái toàn văn mang tính chất chẩn đoán kỹ thuật (hiển thị trong lệnh `health` và `doctor --fulltext`), không xuất hiện trong khối `NGUỒN LỖI` của lệnh `brief` (khối này chỉ dành riêng cho các lỗi kết nối feed RSS).

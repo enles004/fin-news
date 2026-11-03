@@ -3,6 +3,11 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+import support
+
 CORE_DIR = Path(__file__).resolve().parent.parent / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
@@ -27,6 +32,12 @@ class FakeOpener:
 
 
 class TestDiscover(unittest.TestCase):
+    def setUp(self):
+        self._home_cm = support.isolated_home()
+        self.temp_home = self._home_cm.__enter__()
+
+    def tearDown(self):
+        self._home_cm.__exit__(None, None, None)
     def test_discover_finds_link_alternate(self):
         html_page = b"""
         <html>
