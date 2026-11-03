@@ -1,0 +1,132 @@
+{
+  "sources": {
+    "cafef-chungkhoan": {
+      "url": [
+        "https://cafef.vn/thi-truong-chung-khoan.rss",
+        "https://cafef.vn/vi-mo-dau-tu.rss",
+        "https://cafef.vn/tai-chinh-ngan-hang.rss",
+        "https://cafef.vn/doanh-nghiep.rss"
+      ],
+      "kind": "rss",
+      "group": "chuyen-tai-chinh",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "vietstock": {
+      "url": [
+        "https://vietstock.vn/830/chung-khoan/co-phieu.rss",
+        "https://vietstock.vn/761/kinh-te/vi-mo.rss"
+      ],
+      "kind": "rss",
+      "group": "chuyen-tai-chinh",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "tinnhanhchungkhoan": {
+      "url": "https://tinnhanhchungkhoan.vn/rss/home.rss",
+      "kind": "rss",
+      "group": "chuyen-tai-chinh",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "vneconomy": {
+      "url": "https://vneconomy.vn/tin-moi.rss",
+      "kind": "rss",
+      "group": "chuyen-tai-chinh",
+      "enabled": true,
+      "cookie": false,
+      "mixed": true
+    },
+    "cafebiz": {
+      "url": "https://cafebiz.vn/rss/home.rss",
+      "kind": "rss",
+      "group": "chuyen-tai-chinh",
+      "enabled": true,
+      "cookie": false,
+      "mixed": true
+    },
+    "vnexpress": {
+      "url": "https://vnexpress.net/rss/kinh-doanh.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "tuoitre": {
+      "url": "https://tuoitre.vn/rss/kinh-doanh.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "thanhnien": {
+      "url": "https://thanhnien.vn/rss/kinh-te.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "dantri": {
+      "url": "https://dantri.com.vn/rss/kinh-doanh.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "vietnamnet": {
+      "url": "https://vietnamnet.vn/rss/kinh-doanh.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "zingnews": {
+      "url": "https://znews.vn/rss/kinh-doanh-tai-chinh.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "laodong": {
+      "url": "https://laodong.vn/rss/kinh-doanh.rss",
+      "kind": "rss",
+      "group": "tong-hop",
+      "enabled": true,
+      "cookie": true,
+      "mixed": false
+    },
+    "baochinhphu": {
+      "url": "https://baochinhphu.vn/kinh-te.rss",
+      "kind": "rss",
+      "group": "chinh-phu",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "vietnamplus": {
+      "url": "https://www.vietnamplus.vn/rss/kinhte.rss",
+      "kind": "rss",
+      "group": "chinh-phu",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    },
+    "nhandan": {
+      "url": "https://nhandan.vn/rss/kinhte-1185.rss",
+      "kind": "rss",
+      "group": "chinh-phu",
+      "enabled": true,
+      "cookie": false,
+      "mixed": false
+    }
+  }
+}

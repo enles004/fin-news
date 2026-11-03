@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>CDATA Feed</title>
+    <link>https://example.com</link>
+    <item>
+      <title><![CDATA[Tiêu đề <b>in đậm</b> &amp; có dấu]]></title>
+      <link>https://example.com/cdata-1</link>
+      <description><![CDATA[<p>Đoạn văn có <i>thẻ html</i> và &quot;kèm ngoặc kép&quot;.</p>]]></description>
+      <pubDate>Tue, 03 Nov 2026 09:00:00 +0700</pubDate>
+    </item>
+  </channel>
+</rss>

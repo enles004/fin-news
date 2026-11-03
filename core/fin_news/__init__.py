@@ -1,0 +1,1 @@
+"""Fin-News core package."""

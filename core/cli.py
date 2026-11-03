@@ -1,0 +1,221 @@
+"""Fin-News command line interface."""
+import argparse
+import json
+import os
+from pathlib import Path
+import sys
+from typing import List, Optional
+
+# Ensure fin_news can be imported when cli.py is executed directly
+CLI_DIR = Path(__file__).resolve().parent
+if str(CLI_DIR) not in sys.path:
+    sys.path.insert(0, str(CLI_DIR))
+
+from fin_news import config
+from fin_news import discover
+from fin_news import doctor
+from fin_news import fetch
+from fin_news import health
+from fin_news import pipeline
+
+
+def _parse_list_arg(val: Optional[str]) -> Optional[List[str]]:
+    if not val:
+        return None
+    return [item.strip() for item in val.split(",") if item.strip()]
+
+
+def main(argv=None) -> int:
+    # Ensure stdout/stderr output in UTF-8
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+    parser = argparse.ArgumentParser(description="Fin-News CLI workflow tool")
+    subparsers = parser.add_subparsers(dest="subcommand", help="Available subcommands")
+
+    # fetch
+    fetch_parser = subparsers.add_parser("fetch", help="Fetch articles from RSS/news sources")
+    fetch_parser.add_argument("--groups", help="Comma-separated source groups")
+    fetch_parser.add_argument("--only", help="Comma-separated source IDs")
+    fetch_parser.add_argument("--limit", type=int, help="Per-source article limit")
+    fetch_parser.add_argument("--since", help="Fetch articles newer than e.g. 7d")
+    fetch_parser.add_argument("--query", help="Keyword query (bypasses quota)")
+    fetch_parser.add_argument("--topics", help="Comma-separated topic slugs")
+
+    # prepare
+    subparsers.add_parser("prepare", help="Dedupe, filter, and prepare System 1 batches")
+
+    # collect
+    subparsers.add_parser("collect", help="Merge System 1 classification results")
+
+    # cluster
+    cluster_parser = subparsers.add_parser("cluster", help="Cluster articles and prepare merge plan")
+    cluster_parser.add_argument("--skip-merge", action="store_true", help="Skip merge step and write clusters.json directly")
+
+    # merge
+    subparsers.add_parser("merge", help="Apply cluster merge results and write clusters.json")
+
+    # fulltext
+    fulltext_parser = subparsers.add_parser("fulltext", help="Fetch article fulltext for clusters")
+    fulltext_parser.add_argument("cluster_id", nargs="+", help="Cluster ID(s) to fetch")
+
+    # health
+    subparsers.add_parser("health", help="Report source health status")
+
+    # config
+    config_parser = subparsers.add_parser("config", help="Manage configuration")
+    config_parser.add_argument("action", choices=["get", "set", "unset"], help="Config action")
+    config_parser.add_argument("file", help="Config file name (sources, topics, profile)")
+    config_parser.add_argument("key", help="Dotted configuration key")
+    config_parser.add_argument("value", nargs="?", default=None, help="Value to set")
+
+    # add-source
+    add_src_parser = subparsers.add_parser("add-source", help="Discover and add new RSS source")
+    add_src_parser.add_argument("url", help="URL of website or feed")
+    add_src_parser.add_argument("--id", dest="source_id", help="Source ID identifier")
+    add_src_parser.add_argument("--group", default="general", help="Source group")
+
+    # test-source
+    test_src_parser = subparsers.add_parser("test-source", help="Test a specific source")
+    test_src_parser.add_argument("source_id", help="Source ID to test")
+
+    # doctor
+    subparsers.add_parser("doctor", help="Run diagnostic health checks")
+
+    # run
+    run_parser = subparsers.add_parser("run", help="Run fetch and prepare, stopping before classification")
+    run_parser.add_argument("--groups", help="Comma-separated source groups")
+    run_parser.add_argument("--only", help="Comma-separated source IDs")
+    run_parser.add_argument("--limit", type=int, help="Per-source article limit")
+    run_parser.add_argument("--since", help="Fetch articles newer than e.g. 7d")
+    run_parser.add_argument("--query", help="Keyword query")
+
+    args = parser.parse_args(argv)
+    if not args.subcommand:
+        parser.print_help()
+        return 0
+
+    cmd = args.subcommand
+
+    if cmd == "fetch":
+        return pipeline.run_fetch(
+            groups=_parse_list_arg(args.groups),
+            only=_parse_list_arg(args.only),
+            limit=args.limit,
+            since_str=args.since,
+            query=args.query,
+            topics=_parse_list_arg(args.topics),
+        )
+
+    elif cmd == "prepare":
+        return pipeline.run_prepare()
+
+    elif cmd == "collect":
+        return pipeline.run_collect()
+
+    elif cmd == "cluster":
+        return pipeline.run_cluster(skip_merge=args.skip_merge)
+
+    elif cmd == "merge":
+        return pipeline.run_merge()
+
+    elif cmd == "fulltext":
+        return pipeline.run_fulltext(args.cluster_id)
+
+    elif cmd == "health":
+        today_health = pipeline.get_today_dir() / "health.json"
+        healths = []
+        if today_health.exists():
+            try:
+                with open(today_health, "r", encoding="utf-8") as f:
+                    healths = [health.SourceHealth(**item) for item in json.load(f)]
+            except Exception:
+                pass
+        print(health.render(healths))
+        return 0
+
+    elif cmd == "config":
+        if args.action == "get":
+            data = config.load(args.file)
+            val = config._get_nested(data, args.key.split("."))
+            print(json.dumps(val, ensure_ascii=False, indent=2) if isinstance(val, (dict, list)) else val)
+            return 0
+        elif args.action == "set":
+            if args.value is None:
+                print("Lỗi: Thiếu giá trị cần thiết lập.")
+                return 1
+            # Parse json value if possible, else string
+            val_to_set = args.value
+            try:
+                val_to_set = json.loads(args.value)
+            except Exception:
+                pass
+            old_val, new_val = config.set_value(args.file, args.key, val_to_set)
+            print(f"{old_val} → {new_val}")
+            return 0
+        elif args.action == "unset":
+            config.unset(args.file, args.key)
+            print(f"Đã xoá {args.key} khỏi {args.file}.json (khôi phục mặc định).")
+            return 0
+
+    elif cmd == "add-source":
+        res = discover.add_source(args.url, source_id=args.source_id, group=args.group)
+        if not res.get("found", True):
+            print(f"Không tìm thấy feed RSS ({res.get('hint')}).")
+            return 1
+        print(f"Đã thêm nguồn: {res.get('source_id')}")
+        print(f"Feeds: {', '.join(res.get('feed_urls', []))}")
+        print(f"Tiêu đề mẫu:\n" + "\n".join(f"- {t}" for t in res.get("sample_titles", [])))
+        return 0
+
+    elif cmd == "test-source":
+        sources = config.load("sources").get("sources", {})
+        if args.source_id not in sources:
+            print(f"Nguồn '{args.source_id}' không tồn tại trong cấu hình.")
+            return 1
+        h = discover.test_source(args.source_id, sources[args.source_id])
+        print(f"[{h.status.upper()}] {h.source_id}: {h.detail}")
+        return 0 if h.status == "ok" else 1
+
+    elif cmd == "doctor":
+        results = doctor.run()
+        print("=== BÁO CÁO DOCTOR ===")
+        all_passed = True
+        for name, ok, detail in results:
+            status_str = "OK" if ok else "FAIL"
+            print(f"[{status_str:4}] {name:30} : {detail}")
+            if not ok:
+                all_passed = False
+        return 0 if all_passed else 1
+
+    elif cmd == "run":
+        f_ret = pipeline.run_fetch(
+            groups=_parse_list_arg(args.groups),
+            only=_parse_list_arg(args.only),
+            limit=args.limit,
+            since_str=args.since,
+            query=args.query,
+        )
+        if f_ret != 0:
+            return f_ret
+        p_ret = pipeline.run_prepare()
+        if p_ret != 0:
+            return p_ret
+        print("\nHoàn thành fetch + prepare.")
+        print("Bước tiếp theo: Dispatch các subagent news-classifier song song theo từng batch,")
+        print("sau đó gọi 'collect' và 'cluster'.")
+        return 0
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,131 @@
+{
+  "topics": {
+    "vi-mo-chinh-sach": {
+      "label": "Vĩ mô & Chính sách",
+      "keywords": [
+        "lạm phát",
+        "cpi",
+        "gdp",
+        "ngân sách",
+        "thuế",
+        "nghị định",
+        "thông tư",
+        "chính sách tiền tệ",
+        "tăng trưởng",
+        "xuất nhập khẩu",
+        "fdi",
+        "đầu tư công"
+      ]
+    },
+    "ngan-hang": {
+      "label": "Ngân hàng",
+      "keywords": [
+        "ngân hàng",
+        "lãi suất",
+        "tín dụng",
+        "nợ xấu",
+        "huy động vốn",
+        "nhnn",
+        "dự trữ bắt buộc",
+        "thanh khoản",
+        "room tín dụng",
+        "casa"
+      ]
+    },
+    "chung-khoan": {
+      "label": "Chứng khoán",
+      "keywords": [
+        "chứng khoán",
+        "vn-index",
+        "cổ phiếu",
+        "khối ngoại",
+        "thanh khoản",
+        "hose",
+        "hnx",
+        "tự doanh",
+        "margin",
+        "ubcknn",
+        "khớp lệnh"
+      ]
+    },
+    "trai-phieu": {
+      "label": "Trái phiếu",
+      "keywords": [
+        "trái phiếu",
+        "trái phiếu doanh nghiệp",
+        "lãi suất trái phiếu",
+        "đáo hạn",
+        "mua lại trước hạn",
+        "tpb",
+        "nghị định 65",
+        "chậm trả nợ"
+      ]
+    },
+    "vang-ty-gia": {
+      "label": "Vàng & Tỷ giá",
+      "keywords": [
+        "giá vàng",
+        "vàng sjc",
+        "vàng thế giới",
+        "tỷ giá",
+        "usd/vnd",
+        "đô la",
+        "ngoại tệ",
+        "dxy",
+        "bán can thiệp"
+      ]
+    },
+    "bat-dong-san": {
+      "label": "Bất động sản",
+      "keywords": [
+        "bất động sản",
+        "nhà ở xã hội",
+        "đất nền",
+        "chung cư",
+        "dự án",
+        "luật đất đai",
+        "pháp lý dự án",
+        "quy hoạch",
+        "bàn giao",
+        "môi giới"
+      ]
+    },
+    "doanh-nghiep": {
+      "label": "Doanh nghiệp",
+      "keywords": [
+        "doanh thu",
+        "lợi nhuận",
+        "báo cáo tài chính",
+        "phá sản",
+        "m&a",
+        "tổng giám đốc",
+        "hđqt",
+        "cổ tức",
+        "tái cơ cấu",
+        "sa thải",
+        "kinh doanh"
+      ]
+    },
+    "nang-luong-hang-hoa": {
+      "label": "Năng lượng & Hàng hoá",
+      "keywords": [
+        "xăng",
+        "dầu",
+        "giá dầu",
+        "điện",
+        "giá điện",
+        "than",
+        "khí đốt",
+        "lng",
+        "cà phê",
+        "gạo",
+        "cao su",
+        "thép",
+        "nông sản",
+        "hàng hoá",
+        "thủy sản",
+        "sầu riêng"
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "fin-news",
+  "owner": {
+    "name": "fin-news"
+  },
+  "plugins": [
+    {
+      "name": "fin-news",
+      "source": "./",
+      "description": "Vietnamese daily financial news gathering and synthesis workflow"
+    }
+  ]
+}

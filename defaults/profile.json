@@ -1,0 +1,15 @@
+{
+  "max_per_source": 10,
+  "batch_size": 25,
+  "max_clusters": 40,
+  "digest_items": 5,
+  "watchlist": [],
+  "fulltext_articles_per_cluster": 2,
+  "fulltext_max_chars": 3500,
+  "weights": {
+    "max_importance": 1.0,
+    "source_bonus": [0, 1.0, 2.0],
+    "recency_bonus": 1.0,
+    "watchlist_bonus": 1.5
+  }
+}

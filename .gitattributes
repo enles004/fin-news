@@ -1,0 +1,6 @@
+# Keep line endings stable across OSes: launchers must not be converted
+*.sh   text eol=lf
+*.cmd  text eol=crlf
+*.py   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf

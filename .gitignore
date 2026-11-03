@@ -1,0 +1,10 @@
+﻿# IDE and Python artifacts
+.idea/
+__pycache__/
+*.pyc
+
+# Worker/verification reports are not part of the distributed plugin
+REPORT*.md
+
+# Saved copies of third-party news pages (copyrighted); keep local only
+tests/fixtures/pages/
